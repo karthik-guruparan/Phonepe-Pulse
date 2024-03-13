@@ -360,77 +360,6 @@ def create_db():
         st.info('MySQL DB exists')
 
 
-# # This code denotes how the state names are present in phone pe repository vs that in the git geojson file.
-# state_fact=[]
-# state_dim=[]
-# for state in df_agg_trn_state['STATE'].unique():
-#     state_fact.append(state.title())
-
-# data=open(path_data_file+'indiageojson.json')
-# df_india=json.load(data)
-# for i in range(0,len(df_india['features'])):
-#     state_dim.append(df_india['features'][i]['properties']['ST_NM'])
-# print(f' fact:\n {state_fact} \n\n dim:\n {state_dim} \n\n')
-
-
-def get_state_mapping():
-    query='''
-            SELECT YEAR,QUARTER,STATE,TRANSACTION_TYPE,SUM(NUMBER_OF_TRANSACTIONS)NUMBER_OF_TRANSACTIONS,SUM(TRANSACTION_AMOUNT) TRANSACTION_AMOUNT
-            FROM phonepe.agg_trn_state
-            GROUP  BY 1,2,3,4;
-          '''
-    connection=mysql.connect(
-                            host='localhost',
-                            user='root',
-                            password='12345678',
-                            port=3306,
-                            database='phonepe'
-                            )
-    cursor=connection.cursor()
-    cursor.execute(query)
-    df_agg_trn_state=pd.DataFrame(cursor.fetchall(),columns=['YEAR','QUARTER','STATE','TRANSACTION_TYPE','NUMBER_OF_TRANSACTIONS','TRANSACTION_AMOUNT'])
-    connection.commit()
-
-
-    df_agg_trn_state['STATE']=df_agg_trn_state['STATE'].map({"andaman & nicobar islands":"Andaman & Nicobar",
-                                           "andhra pradesh":"Andhra Pradesh",
-                                           "arunachal pradesh":"Arunachal Pradesh",
-                                           "assam":"Assam",
-                                           "bihar":"Bihar",
-                                           "chandigarh":"Chandigarh",
-                                           "chhattisgarh":"Chhattisgarh",
-                                           "dadra & nagar haveli & daman & diu":"Dadra and Nagar Haveli and Daman and Diu",
-                                           "delhi":"Delhi",
-                                           "goa":"Goa",
-                                           "gujarat":"Gujarat",
-                                           "haryana":"Haryana",
-                                           "himachal pradesh":"Himachal Pradesh",
-                                           "jammu & kashmir":"Jammu & Kashmir",
-                                           "jharkhand":"Jharkhand",
-                                           "karnataka":"Karnataka",
-                                           "kerala":"Kerala",
-                                           "ladakh":"Ladakh",
-                                           "lakshadweep":"Lakshadweep",
-                                           "madhya pradesh":"Madhya Pradesh",
-                                           "maharashtra":"Maharashtra",
-                                           "manipur":"Manipur",
-                                           "meghalaya":"Meghalaya",
-                                           "mizoram":"Mizoram",
-                                           "nagaland":"Nagaland",
-                                           "odisha":"Odisha",
-                                           "puducherry":"Puducherry",
-                                           "punjab":"Punjab",
-                                           "rajasthan":"Rajasthan",
-                                           "sikkim":"Sikkim",
-                                           "tamil nadu":"Tamil Nadu",
-                                           "telangana":"Telangana",
-                                           "tripura":"Tripura",
-                                           "uttar pradesh":"Uttar Pradesh",
-                                           "uttarakhand":"Uttarakhand",
-                                           "west bengal":"West Bengal",})
-
-    return df_agg_trn_state
-
 
 ## Streamlit part
 st.title(':violet[Phone pe- Pulse]')
@@ -450,23 +379,15 @@ with tab2:
     if st.button(":violet[Load data]"):
         create_db()      
         create_and_insert_into_tables(df_agg_trn_state,df_agg_user_state,df_agg_user_state_brand,df_map_trn_district,df_map_user_district)
-        df_agg_trn_state=get_state_mapping()
-    subtab1,subtab2=st.tabs(['Transaction amount across states',' Transaction Trend '])
     
     with st.container(border=True, height=100):
-        col1,col2,col3,col4,col5,col6=st.columns(6)
+        col1,col2,col3=st.columns(3)
         with col1:
            year=st.selectbox('Year',df_agg_trn_state['YEAR'].unique())
         with col2:
            quarter=st.selectbox('Quarter',df_agg_trn_state['QUARTER'].unique())
         with col3:
-          state=st.selectbox('State',df_agg_trn_state['STATE'].unique())
-        with col4:
           transaction_type=st.selectbox('Transaction type',df_agg_trn_state['TRANSACTION_TYPE'].unique())            
-        with col5:
-          district=st.selectbox('District',df_map_trn_district['DISTRICT'].unique())   
-        with col6:
-          brand=st.selectbox('Brand',df_agg_user_state_brand['BRAND'].unique())   
         
     if year or quarter or state or transaction_type:
         connection=mysql.connect(
@@ -476,9 +397,7 @@ with tab2:
                             port=3306
                             )
         cursor=connection.cursor()
-        state="'"+str(state)+"'"
         transaction_type="'"+str(transaction_type)+"'"
-        district="'"+str(district)+"'"
 
         cursor.execute(f'SELECT STATE,sum(cast(round(NUMBER_OF_TRANSACTIONS) as SIGNED))NUMBER_OF_TRANSACTIONS,SUM(CAST(round(TRANSACTION_AMOUNT)AS SIGNED)) TRANSACTION_AMOUNT  FROM phonepe.agg_trn_state WHERE YEAR IN ({year}) and QUARTER IN ({quarter}) and TRANSACTION_TYPE in ({transaction_type}) GROUP  BY 1;')
         data=pd.DataFrame(cursor.fetchall(),columns=['STATE','NUMBER_OF_TRANSACTIONS','TRANSACTION_AMOUNT'])
