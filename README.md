@@ -39,3 +39,32 @@ Step2: Once the modules are imported , we can clone the git repository into our 
             st.success('Git Repository Cloned')
         except:
             st.info('Repository is already cloned')   
+            
+Step3: The repository comprises data for multiple state, years and quarters and can be accessed using nested for loops.
+        
+        def extract_state_transactions(path_agg_trn_state):
+            # Get year-qtr-statewise Transaction type , count, value
+            try:
+                data={'STATE':[],'YEAR':[],'QUARTER':[],'TRANSACTION_TYPE':[],'TRANSACTIONS':[],'AMOUNT':[]}
+                states=os.listdir(path_agg_trn_state)
+                for state in states:
+                    path_state=path_agg_trn_state+state
+                    years=os.listdir(path_state)
+                    for year in years:
+                        path_state_year=path_state+'\\'+year
+                        quarters=os.listdir(path_state_year)
+                        for quarter in quarters:
+                            file=open(path_state_year+'\\'+quarter)
+                            df=json.load(file)
+                            for item in df['data']['transactionData']:
+            #                    st.write(path_state_year+'\\'+quarter)
+                                data['YEAR'].append(year)
+                                data['QUARTER'].append(quarter[0:1])
+                                data['STATE'].append(state.replace('-',' '))
+                                data['TRANSACTION_TYPE'].append(item['name'])
+                                data['TRANSACTIONS'].append(item['paymentInstruments'][0]['count'])
+                                data['AMOUNT'].append(item['paymentInstruments'][0]['amount'])
+                return data
+                
+            except:
+                return {'STATE':[],'YEAR':[],'QUARTER':[],'TRANSACTION_TYPE':[],'TRANSACTIONS':[],'AMOUNT':[]}
