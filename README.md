@@ -40,7 +40,7 @@ Step2: Once the modules are imported , we can clone the git repository into our 
         except:
             st.info('Repository is already cloned')   
             
-Step3: The repository comprises data for multiple state, years and quarters and can be accessed using nested for loops.
+Step3: The repository comprises data for multiple state, years and quarters and can be accessed using nested for loops as done below.
         
         def extract_state_transactions(path_agg_trn_state):
             # Get year-qtr-statewise Transaction type , count, value
@@ -68,3 +68,42 @@ Step3: The repository comprises data for multiple state, years and quarters and 
                 
             except:
                 return {'STATE':[],'YEAR':[],'QUARTER':[],'TRANSACTION_TYPE':[],'TRANSACTIONS':[],'AMOUNT':[]}
+
+Step4: Once dataframe with necessary data is created , we can create a MySQL DB objects and insert data.
+        def create_and_insert_into_tables(df_agg_trn_state,df_agg_user_state,df_agg_user_state_brand,df_map_trn_district,df_map_user_district):
+                      
+            connection=mysql.connect(
+                                    host='localhost',
+                                    user='root',
+                                    password='12345678',
+                                    port=3306,
+                                    database='phonepe'
+                                    )
+            cursor=connection.cursor() 
+            # STATE TABLE CREATION
+            try:
+                cursor.execute('DROP TABLE IF EXISTS AGG_TRN_STATE;')
+                connection.commit()
+                query='''
+                          CREATE TABLE AGG_TRN_STATE (
+                                                        YEAR INT,
+                                                        QUARTER INT,
+                                                        STATE VARCHAR(200),
+                                                        TRANSACTION_TYPE VARCHAR(200),
+                                                        NUMBER_OF_TRANSACTIONS BIGINT,
+                                                        TRANSACTION_AMOUNT BIGINT
+                                                    );
+                     '''
+                cursor.execute(query)
+                connection.commit()
+                values=[]
+                query='''
+                            insert into phonepe.AGG_TRN_STATE values(%s,%s,%s,%s,%s,%s);
+                      '''
+                for rownum,item in df_agg_trn_state.iterrows():
+                    values.append((item['YEAR'],item['QUARTER'],item['STATE'],item['TRANSACTION_TYPE'],item['TRANSACTIONS'],item['AMOUNT']))
+                cursor.executemany(query,values)
+                connection.commit()
+                st.success('AGG_TRN_STATE table created')
+            except:
+                st.error('create error- AGG_TRN_STATE')
