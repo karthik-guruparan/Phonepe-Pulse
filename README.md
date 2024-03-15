@@ -70,6 +70,7 @@ Step3: The repository comprises data for multiple state, years and quarters and 
                 return {'STATE':[],'YEAR':[],'QUARTER':[],'TRANSACTION_TYPE':[],'TRANSACTIONS':[],'AMOUNT':[]}
 
 Step4: Once dataframe with necessary data is created , we can create a MySQL DB objects and insert data.
+        
         def create_and_insert_into_tables(df_agg_trn_state,df_agg_user_state,df_agg_user_state_brand,df_map_trn_district,df_map_user_district):
                       
             connection=mysql.connect(
@@ -107,3 +108,96 @@ Step4: Once dataframe with necessary data is created , we can create a MySQL DB 
                 st.success('AGG_TRN_STATE table created')
             except:
                 st.error('create error- AGG_TRN_STATE')
+                
+Step5: Once the data is loaded into MySQL DB , we can make use of streamlit module to build an app comprising of selectors,buttons and charts.
+          
+            st.title(':violet[Phone pe- Pulse]')
+            st.divider()
+            tab1,tab2=st.tabs(['1.Clone repository','2.Load and Visualize data'])
+            df_agg_trn_state=pd.DataFrame(extract_state_transactions(path_agg_trn_state))
+            data,data1=extract_state_user_transactions(path_agg_user_state)
+            df_agg_user_state=pd.DataFrame(data)
+            df_agg_user_state_brand=pd.DataFrame(data1)
+            df_map_trn_district=pd.DataFrame(extract_district_transactions(path_map_trn_district))
+            df_map_user_district=pd.DataFrame(extract_district_user_transactions(path_map_user_district))
+            
+            with tab1:
+                if st.button(":violet[Clone repository]"):
+                    clone_git(clone_to_path)
+            with tab2:
+                try:
+                    if st.button(":violet[Load data]"):
+                        create_db()      
+                        create_and_insert_into_tables(df_agg_trn_state,df_agg_user_state,df_agg_user_state_brand,df_map_trn_district,df_map_user_district)
+                    
+                    with st.container(border=True, height=100):
+                        col1,col2,col3=st.columns(3)
+                        with col1:
+                           year=st.selectbox('Year',df_agg_trn_state['YEAR'].unique())
+                        with col2:
+                           quarter=st.selectbox('Quarter',df_agg_trn_state['QUARTER'].unique())
+                        with col3:
+                          transaction_type=st.selectbox('Transaction type',df_agg_trn_state['TRANSACTION_TYPE'].unique())            
+                        
+                    if year or quarter or transaction_type:
+                        connection=mysql.connect(
+                                            host='localhost',
+                                            user='root',
+                                            password='12345678',
+                                            port=3306
+                                            )
+                        cursor=connection.cursor()
+                        transaction_type="'"+str(transaction_type)+"'"
+            
+                        cursor.execute(f'SELECT STATE,sum(cast(round(NUMBER_OF_TRANSACTIONS) as SIGNED))NUMBER_OF_TRANSACTIONS,SUM(CAST(round(TRANSACTION_AMOUNT)AS SIGNED)) TRANSACTION_AMOUNT  FROM phonepe.agg_trn_state WHERE YEAR IN ({year}) and QUARTER IN ({quarter}) and TRANSACTION_TYPE in ({transaction_type}) GROUP  BY 1;')
+                        data=pd.DataFrame(cursor.fetchall(),columns=['STATE','NUMBER_OF_TRANSACTIONS','TRANSACTION_AMOUNT'])
+                        data['STATE']=data['STATE'].map({"andaman & nicobar islands":"Andaman & Nicobar",
+                                                           "andhra pradesh":"Andhra Pradesh",
+                                                           "arunachal pradesh":"Arunachal Pradesh",
+                                                           "assam":"Assam",
+                                                           "bihar":"Bihar",
+                                                           "chandigarh":"Chandigarh",
+                                                           "chhattisgarh":"Chhattisgarh",
+                                                           "dadra & nagar haveli & daman & diu":"Dadra and Nagar Haveli and Daman and Diu",
+                                                           "delhi":"Delhi",
+                                                           "goa":"Goa",
+                                                           "gujarat":"Gujarat",
+                                                           "haryana":"Haryana",
+                                                           "himachal pradesh":"Himachal Pradesh",
+                                                           "jammu & kashmir":"Jammu & Kashmir",
+                                                           "jharkhand":"Jharkhand",
+                                                           "karnataka":"Karnataka",
+                                                           "kerala":"Kerala",
+                                                           "ladakh":"Ladakh",
+                                                           "lakshadweep":"Lakshadweep",
+                                                           "madhya pradesh":"Madhya Pradesh",
+                                                           "maharashtra":"Maharashtra",
+                                                           "manipur":"Manipur",
+                                                           "meghalaya":"Meghalaya",
+                                                           "mizoram":"Mizoram",
+                                                           "nagaland":"Nagaland",
+                                                           "odisha":"Odisha",
+                                                           "puducherry":"Puducherry",
+                                                           "punjab":"Punjab",
+                                                           "rajasthan":"Rajasthan",
+                                                           "sikkim":"Sikkim",
+                                                           "tamil nadu":"Tamil Nadu",
+                                                           "telangana":"Telangana",
+                                                           "tripura":"Tripura",
+                                                           "uttar pradesh":"Uttar Pradesh",
+                                                           "uttarakhand":"Uttarakhand",
+                                                           "west bengal":"West Bengal",})
+                  
+                        fig = px.choropleth(
+                        data,
+                        geojson="https://gist.githubusercontent.com/jbrobst/56c13bbbf9d97d187fea01ca62ea5112/raw/e388c4cae20aa53cb5090210a42ebb9b765c0a36/india_states.geojson",
+                        featureidkey='properties.ST_NM',
+                        locations='STATE',
+                        color='TRANSACTION_AMOUNT',
+                        color_continuous_scale="Reds",
+                        range_color=(0, 12)
+                                            )
+                        fig.update_geos(fitbounds="locations", visible=False)
+                        st.plotly_chart(fig,theme='streamlit') 
+                except:
+                    pass
