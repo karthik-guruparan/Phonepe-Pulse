@@ -7,9 +7,9 @@ import os
 import json
 import plotly.express as px
 
-# os.environ["GIT_PYTHON_REFRESH"] = "quiet"
-clone_to_path="E:\karthik\D101D102D103\data\Clones\Phonepe_Pulse"
-path_data_file='E:\karthik\D101D102D103\data\\'
+os.environ["GIT_PYTHON_REFRESH"] = "quiet"
+clone_to_path=r"C:\Users\mikan\Documents\Karthik\GUVI\D101D102D103\data\Clones\Phonepe_Pulse"
+path_data_file=r'C:\Users\mikan\Documents\Karthik\GUVI\D101D102D103\data\\'
 path_agg_trn_state=clone_to_path+r"\data\aggregated\transaction\country\india\state\\"
 path_agg_user_state=clone_to_path+r"\data\aggregated\user\country\india\state\\"
 path_map_trn_district=clone_to_path+r"\data\map\transaction\hover\country\india\state\\"
@@ -22,7 +22,9 @@ def clone_git(clone_to_path):
     except:
         st.info('Repository is already cloned')   
     
-def mysql_connect():
+def mysql_connect(query,data=None):
+    if data is None:
+        data=[]
     connection=mysql.connect(
                             host='localhost',
                             user='root',
@@ -31,7 +33,8 @@ def mysql_connect():
                             database='phonepe'
                             )
     cursor=connection.cursor()
-    return cursor
+    cursor.execute(query,data)
+    return pd.DataFrame(cursor.fetchall())
 
 def extract_state_transactions(path_agg_trn_state):
     # Get year-qtr-statewise Transaction type , count, value
@@ -341,7 +344,8 @@ def create_db():
                             host='localhost',
                             user='root',
                             password='12345678',
-                            port=3306
+                            port=3306,
+                            auth_plugin='mysql_native_password'
                             )
     cursor=connection.cursor()
 
@@ -359,6 +363,7 @@ def create_db():
 
 
 ## Streamlit part
+st.set_page_config(layout="wide")
 st.title(':violet[Phone pe- Pulse]')
 st.divider()
 tab1,tab2=st.tabs(['1.Clone repository','2.Load and Visualize data'])
@@ -373,79 +378,110 @@ with tab1:
     if st.button(":violet[Clone repository]"):
         clone_git(clone_to_path)
 with tab2:
-    try:
-        if st.button(":violet[Load data]"):
-            create_db()      
-            create_and_insert_into_tables(df_agg_trn_state,df_agg_user_state,df_agg_user_state_brand,df_map_trn_district,df_map_user_district)
-        
-        with st.container(border=True, height=100):
-            col1,col2,col3=st.columns(3)
-            with col1:
-               year=st.selectbox('Year',df_agg_trn_state['YEAR'].unique())
-            with col2:
-               quarter=st.selectbox('Quarter',df_agg_trn_state['QUARTER'].unique())
-            with col3:
-              transaction_type=st.selectbox('Transaction type',df_agg_trn_state['TRANSACTION_TYPE'].unique())            
-            
-        if year or quarter or transaction_type:
-            connection=mysql.connect(
-                                host='localhost',
-                                user='root',
-                                password='12345678',
-                                port=3306
-                                )
-            cursor=connection.cursor()
-            transaction_type="'"+str(transaction_type)+"'"
+#    try:
+     if st.button(":violet[Load data]"):
+         create_db()      
+         create_and_insert_into_tables(df_agg_trn_state,df_agg_user_state,df_agg_user_state_brand,df_map_trn_district,df_map_user_district)
+     
+     with st.container(border=True, height=100):
+         col1,col2,col3=st.columns(3)
+         with col1:
+            year=st.selectbox('Year',df_agg_trn_state['YEAR'].unique())
+         with col2:
+            quarter=st.selectbox('Quarter',df_agg_trn_state['QUARTER'].unique())
+         with col3:
+           transaction_type=st.selectbox('Transaction type',df_agg_trn_state['TRANSACTION_TYPE'].unique())            
+     
+     with st.container(border=True, height=500):
+         if year or quarter or transaction_type:
+             connection=mysql.connect(
+                                 host='localhost',
+                                 user='root',
+                                 password='12345678',
+                                 port=3306,
+                                 auth_plugin='mysql_native_password'    
+                                 )
+             cursor=connection.cursor()
+             transaction_type="'"+str(transaction_type)+"'"
+         
+             cursor.execute(f'SELECT STATE,sum(cast(round(NUMBER_OF_TRANSACTIONS) as SIGNED))NUMBER_OF_TRANSACTIONS,SUM(CAST(round(TRANSACTION_AMOUNT)AS SIGNED)) TRANSACTION_AMOUNT  FROM phonepe.agg_trn_state WHERE YEAR IN ({year}) and QUARTER IN ({quarter}) and TRANSACTION_TYPE in ({transaction_type}) GROUP  BY 1 ORDER BY 3 DESC;')
+             data1=pd.DataFrame(cursor.fetchall(),columns=['STATE','NUMBER_OF_TRANSACTIONS','TRANSACTION_AMOUNT'])
+             data1.sort_values(by=['TRANSACTION_AMOUNT'],inplace=True)
+             data1['STATE']=data1['STATE'].map({"andaman & nicobar islands":"Andaman & Nicobar",
+                                                "andhra pradesh":"Andhra Pradesh",
+                                                "arunachal pradesh":"Arunachal Pradesh",
+                                                "assam":"Assam",
+                                                "bihar":"Bihar",
+                                                "chandigarh":"Chandigarh",
+                                                "chhattisgarh":"Chhattisgarh",
+                                                "dadra & nagar haveli & daman & diu":"Dadra and Nagar Haveli and Daman and Diu",
+                                                "delhi":"Delhi",
+                                                "goa":"Goa",
+                                                "gujarat":"Gujarat",
+                                                "haryana":"Haryana",
+                                                "himachal pradesh":"Himachal Pradesh",
+                                                "jammu & kashmir":"Jammu & Kashmir",
+                                                "jharkhand":"Jharkhand",
+                                                "karnataka":"Karnataka",
+                                                "kerala":"Kerala",
+                                                "ladakh":"Ladakh",
+                                                "lakshadweep":"Lakshadweep",
+                                                "madhya pradesh":"Madhya Pradesh",
+                                                "maharashtra":"Maharashtra",
+                                                "manipur":"Manipur",
+                                                "meghalaya":"Meghalaya",
+                                                "mizoram":"Mizoram",
+                                                "nagaland":"Nagaland",
+                                                "odisha":"Odisha",
+                                                "puducherry":"Puducherry",
+                                                "punjab":"Punjab",
+                                                "rajasthan":"Rajasthan",
+                                                "sikkim":"Sikkim",
+                                                "tamil nadu":"Tamil Nadu",
+                                                "telangana":"Telangana",
+                                                "tripura":"Tripura",
+                                                "uttar pradesh":"Uttar Pradesh",
+                                                "uttarakhand":"Uttarakhand",
+                                                "west bengal":"West Bengal",})
+         
+             data1= data1.convert_dtypes(infer_objects=True, convert_string=True, convert_integer=True, convert_boolean=True, convert_floating=True, dtype_backend='numpy_nullable')
+             data1['NUMBER_OF_TRANSACTIONS']=data1['NUMBER_OF_TRANSACTIONS'].astype({'NUMBER_OF_TRANSACTIONS': 'int64'})
+             data1['TRANSACTION_AMOUNT']=data1['TRANSACTION_AMOUNT'].astype({'TRANSACTION_AMOUNT': 'int64'})
+             data1.rename(columns={'NUMBER_OF_TRANSACTIONS':'TRANSACTION COUNT','TRANSACTION_AMOUNT':'TRANSACTION VALUE'},inplace=True)
 
-            cursor.execute(f'SELECT STATE,sum(cast(round(NUMBER_OF_TRANSACTIONS) as SIGNED))NUMBER_OF_TRANSACTIONS,SUM(CAST(round(TRANSACTION_AMOUNT)AS SIGNED)) TRANSACTION_AMOUNT  FROM phonepe.agg_trn_state WHERE YEAR IN ({year}) and QUARTER IN ({quarter}) and TRANSACTION_TYPE in ({transaction_type}) GROUP  BY 1;')
-            data=pd.DataFrame(cursor.fetchall(),columns=['STATE','NUMBER_OF_TRANSACTIONS','TRANSACTION_AMOUNT'])
-            data['STATE']=data['STATE'].map({"andaman & nicobar islands":"Andaman & Nicobar",
-                                               "andhra pradesh":"Andhra Pradesh",
-                                               "arunachal pradesh":"Arunachal Pradesh",
-                                               "assam":"Assam",
-                                               "bihar":"Bihar",
-                                               "chandigarh":"Chandigarh",
-                                               "chhattisgarh":"Chhattisgarh",
-                                               "dadra & nagar haveli & daman & diu":"Dadra and Nagar Haveli and Daman and Diu",
-                                               "delhi":"Delhi",
-                                               "goa":"Goa",
-                                               "gujarat":"Gujarat",
-                                               "haryana":"Haryana",
-                                               "himachal pradesh":"Himachal Pradesh",
-                                               "jammu & kashmir":"Jammu & Kashmir",
-                                               "jharkhand":"Jharkhand",
-                                               "karnataka":"Karnataka",
-                                               "kerala":"Kerala",
-                                               "ladakh":"Ladakh",
-                                               "lakshadweep":"Lakshadweep",
-                                               "madhya pradesh":"Madhya Pradesh",
-                                               "maharashtra":"Maharashtra",
-                                               "manipur":"Manipur",
-                                               "meghalaya":"Meghalaya",
-                                               "mizoram":"Mizoram",
-                                               "nagaland":"Nagaland",
-                                               "odisha":"Odisha",
-                                               "puducherry":"Puducherry",
-                                               "punjab":"Punjab",
-                                               "rajasthan":"Rajasthan",
-                                               "sikkim":"Sikkim",
-                                               "tamil nadu":"Tamil Nadu",
-                                               "telangana":"Telangana",
-                                               "tripura":"Tripura",
-                                               "uttar pradesh":"Uttar Pradesh",
-                                               "uttarakhand":"Uttarakhand",
-                                               "west bengal":"West Bengal",})
-      
-            fig = px.choropleth(
-            data,
-            geojson="https://gist.githubusercontent.com/jbrobst/56c13bbbf9d97d187fea01ca62ea5112/raw/e388c4cae20aa53cb5090210a42ebb9b765c0a36/india_states.geojson",
-            featureidkey='properties.ST_NM',
-            locations='STATE',
-            color='TRANSACTION_AMOUNT',
-            color_continuous_scale="Reds",
-            range_color=(0, 12)
-                                )
-            fig.update_geos(fitbounds="locations", visible=False)
-            st.plotly_chart(fig,theme='streamlit') 
-    except:
-        pass
+             fig = px.choropleth(
+             data1,
+             geojson="https://gist.githubusercontent.com/jbrobst/56c13bbbf9d97d187fea01ca62ea5112/raw/e388c4cae20aa53cb5090210a42ebb9b765c0a36/india_states.geojson",
+             featureidkey='properties.ST_NM',
+             locations='STATE',
+             color='TRANSACTION VALUE',
+             hover_data=['TRANSACTION VALUE','TRANSACTION COUNT'],
+             color_continuous_scale="Purples"
+                                 )
+             fig.update_geos(fitbounds="locations", visible=False)
+             st.subheader('Trasaction value across states', anchor=None, help=None, divider=True)
+             st.plotly_chart(fig,theme='streamlit',use_container_width=True) 
+             
+             ## Year and quarter wise transactions - Horizontal stacked bar 
+             query=f'SELECT YEAR,QUARTER,sum(NUMBER_OF_TRANSACTIONS)NUMBER_OF_TRANSACTIONS,sum(TRANSACTION_AMOUNT)TRANSACTION_AMOUNT FROM phonepe.agg_trn_state WHERE TRANSACTION_TYPE in ({transaction_type}) group by 1,2 order by 1,2;'
+             df=mysql_connect(query)
+             df.rename(columns={0:'YEAR',1:'QUARTER',2:'TRANSACTION COUNT',3:'TRANSACTION VALUE'},inplace=True)
+             df['TRANSACTION COUNT']=df['TRANSACTION COUNT'].astype({'TRANSACTION COUNT': 'int64'})
+             df['TRANSACTION VALUE']=df['TRANSACTION VALUE'].astype({'TRANSACTION VALUE': 'int64'})
+#             st.write(df.dtypes)
+             fig=px.bar(df,x='YEAR',y='TRANSACTION VALUE',color='QUARTER')
+             st.plotly_chart(fig,theme='streamlit',use_container_width=True)    
+
+             ## Year and quarter wise transactions - Horizontal stacked bar 
+             query=f'SELECT TRANSACTION_TYPE,sum(NUMBER_OF_TRANSACTIONS)NUMBER_OF_TRANSACTIONS,sum(TRANSACTION_AMOUNT)TRANSACTION_AMOUNT FROM phonepe.agg_trn_state where YEAR={year} AND QUARTER={quarter} group by 1 order by 3 ;'
+             df=mysql_connect(query)
+             df.rename(columns={0:'Transaction type',1:'TRANSACTION COUNT',2:'TRANSACTION VALUE'},inplace=True)
+             df['TRANSACTION COUNT']=df['TRANSACTION COUNT'].astype({'TRANSACTION COUNT': 'int64'})
+             df['TRANSACTION VALUE']=df['TRANSACTION VALUE'].astype({'TRANSACTION VALUE': 'int64'})
+#             st.write(df.dtypes)
+             fig=px.bar(df,y='Transaction type',x='TRANSACTION VALUE',orientation='h',hover_data=['Transaction type','TRANSACTION VALUE','TRANSACTION COUNT'],color='TRANSACTION VALUE',color_continuous_scale="Purples")
+             st.plotly_chart(fig,theme='streamlit',use_container_width=True)                
+             ## st.bar_chart(data=data1,x='STATE', y='TRANSACTION_AMOUNT', color="#ffaa00", use_container_width=True)
+                 
+#    except:
+#        pass
