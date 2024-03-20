@@ -472,16 +472,67 @@ with tab2:
              fig=px.bar(df,x='YEAR',y='TRANSACTION VALUE',color='QUARTER')
              st.plotly_chart(fig,theme='streamlit',use_container_width=True)    
 
-             ## Year and quarter wise transactions - Horizontal stacked bar 
+             ## Transaction value by type - Vertical bar 
+             st.subheader('Transaction value by type', anchor=None, help=None, divider=True)
              query=f'SELECT TRANSACTION_TYPE,sum(NUMBER_OF_TRANSACTIONS)NUMBER_OF_TRANSACTIONS,sum(TRANSACTION_AMOUNT)TRANSACTION_AMOUNT FROM phonepe.agg_trn_state where YEAR={year} AND QUARTER={quarter} group by 1 order by 3 ;'
              df=mysql_connect(query)
              df.rename(columns={0:'Transaction type',1:'TRANSACTION COUNT',2:'TRANSACTION VALUE'},inplace=True)
              df['TRANSACTION COUNT']=df['TRANSACTION COUNT'].astype({'TRANSACTION COUNT': 'int64'})
              df['TRANSACTION VALUE']=df['TRANSACTION VALUE'].astype({'TRANSACTION VALUE': 'int64'})
 #             st.write(df.dtypes)
-             fig=px.bar(df,y='Transaction type',x='TRANSACTION VALUE',orientation='h',hover_data=['Transaction type','TRANSACTION VALUE','TRANSACTION COUNT'],color='TRANSACTION VALUE',color_continuous_scale="Purples")
+             fig=px.bar(df,y='Transaction type',x='TRANSACTION VALUE',orientation='h',hover_data=['Transaction type','TRANSACTION VALUE','TRANSACTION COUNT'],color='TRANSACTION VALUE')
              st.plotly_chart(fig,theme='streamlit',use_container_width=True)                
              ## st.bar_chart(data=data1,x='STATE', y='TRANSACTION_AMOUNT', color="#ffaa00", use_container_width=True)
+             
+             with st.container():
+                col1,col2=st.columns(2)
+                with col1:
+                     st.subheader('Top 10 states by transaction value', anchor=None, help=None, divider=True)
+                     query=f'SELECT * FROM (SELECT STATE,sum(NUMBER_OF_TRANSACTIONS)NUMBER_OF_TRANSACTIONS,sum(TRANSACTION_AMOUNT)TRANSACTION_AMOUNT FROM phonepe.agg_trn_state WHERE YEAR IN ({year}) and QUARTER IN ({quarter}) and TRANSACTION_TYPE in ({transaction_type}) group by 1 order by 3 DESC limit 10)A ORDER BY 3;'
+                     df=mysql_connect(query)
+                     df.rename(columns={0:'STATE',1:'TRANSACTION COUNT',2:'TRANSACTION VALUE'},inplace=True)
+                     df['TRANSACTION COUNT']=df['TRANSACTION COUNT'].astype({'TRANSACTION COUNT': 'int64'})
+                     df['TRANSACTION VALUE']=df['TRANSACTION VALUE'].astype({'TRANSACTION VALUE': 'int64'})
+                    
+        #             st.write(df.dtypes)
+                     fig=px.bar(df,y='STATE',x='TRANSACTION VALUE',orientation='h',hover_data=['STATE','TRANSACTION VALUE'],color='TRANSACTION VALUE')
+                     st.plotly_chart(fig,theme='streamlit',use_container_width=True) 
+                with col2:
+                     st.subheader('Bottom 10 states by transaction value', anchor=None, help=None, divider=True)
+                     query=f'SELECT * FROM (SELECT STATE,sum(NUMBER_OF_TRANSACTIONS)NUMBER_OF_TRANSACTIONS,sum(TRANSACTION_AMOUNT)TRANSACTION_AMOUNT FROM phonepe.agg_trn_state WHERE YEAR IN ({year}) and QUARTER IN ({quarter}) and TRANSACTION_TYPE in ({transaction_type}) group by 1 order by 3  limit 10)A ORDER BY 3 DESC ;'
+                     df=mysql_connect(query)
+                     df.rename(columns={0:'STATE',1:'TRANSACTION COUNT',2:'TRANSACTION VALUE'},inplace=True)
+                     df['TRANSACTION COUNT']=df['TRANSACTION COUNT'].astype({'TRANSACTION COUNT': 'int64'})
+                     df['TRANSACTION VALUE']=df['TRANSACTION VALUE'].astype({'TRANSACTION VALUE': 'int64'})
+        #             st.write(df.dtypes)
+                     fig=px.bar(df,y='STATE',x='TRANSACTION VALUE',orientation='h',hover_data=['STATE','TRANSACTION VALUE'],color='TRANSACTION VALUE')
+                     st.plotly_chart(fig,theme='streamlit',use_container_width=True) 
+             with st.container():
+                col1,col2=st.columns(2)
+                with col1:
+                     st.subheader('State-wise adoption analysis', anchor=None, help=None, divider=True)
+                     query=f'SELECT A.STATE,SUM(REGISTERED_USERS)REGISTERED_USERS,SUM(VIEW_COUNT)VIEW_COUNT,max(TRANSACTION_AMOUNT)TRANSACTION_AMOUNT FROM phonepe.agg_user_state A join (SELECT STATE,YEAR,QUARTER,sum(NUMBER_OF_TRANSACTIONS)NUMBER_OF_TRANSACTIONS,sum(TRANSACTION_AMOUNT)TRANSACTION_AMOUNT FROM phonepe.agg_trn_state group by 1,2,3 )B ON A.STATE=B.STATE AND A.YEAR=B.YEAR AND A.QUARTER=B.QUARTER WHERE A.YEAR IN ({year}) and A.QUARTER IN ({quarter})  GROUP BY 1 ORDER BY 4 DESC ;'
+                     df=mysql_connect(query)
+                     df.rename(columns={0:'STATE',1:'REGISTERED USERS',2:'VIEW COUNT',3:'TRANSACTION VALUE'},inplace=True)
+                     df['REGISTERED USERS']=df['REGISTERED USERS'].astype({'REGISTERED USERS': 'int64'})
+                     df['VIEW COUNT']=df['VIEW COUNT'].astype({'VIEW COUNT': 'int64'})                  
+                     df['TRANSACTION VALUE']=df['TRANSACTION VALUE'].astype({'TRANSACTION VALUE': 'int64'})
+        #             st.write(df.dtypes)
+                     fig=px.scatter(df,y='VIEW COUNT',x='REGISTERED USERS',hover_data=['STATE','TRANSACTION VALUE','REGISTERED USERS'],color='STATE',size='TRANSACTION VALUE')
+                     st.plotly_chart(fig,theme='streamlit',use_container_width=True) 
+
+                with col2:
+                     st.subheader('Brand wise user count', anchor=None, help=None, divider=True)
+                     query=f'SELECT BRAND,REGISTERED_USERS,SUM(REGISTERED_USERS) OVER() AS TOTAL_USERS,(MAX(REGISTERED_USERS)/SUM(REGISTERED_USERS) OVER())*100 PERCENT FROM(SELECT BRAND,sum(REGISTERED_USERS)REGISTERED_USERS FROM phonepe.agg_user_state_brand  WHERE YEAR IN ({year}) and QUARTER IN ({quarter}) GROUP BY 1)A GROUP BY 1,2 ORDER BY 4 ';
+                     df=mysql_connect(query)
+                     df.rename(columns={0:'BRAND',1:'REGISTERED USERS',2:'TOTAL USERS',3:'PERCENT'},inplace=True)
+                     df['REGISTERED USERS']=df['REGISTERED USERS'].astype({'REGISTERED USERS': 'int64'})
+                     df['TOTAL USERS']=df['TOTAL USERS'].astype({'TOTAL USERS': 'int64'})
+                     df['PERCENT']=df['PERCENT'].astype({'PERCENT': 'float'})
+        #             st.write(df.dtypes)
+                     fig=px.bar(df,x='PERCENT',y='BRAND',orientation='h',hover_data=['BRAND','PERCENT','REGISTERED USERS'],color='REGISTERED USERS')
+                     st.plotly_chart(fig,theme='streamlit',use_container_width=True) 
+
                  
 #    except:
 #        pass
